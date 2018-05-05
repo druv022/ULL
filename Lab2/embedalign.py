@@ -42,7 +42,7 @@ class FFNN(nn.Module):
 
 class LSTM(nn.Module):
 
-    def __init__(self,vocab_size, hidden_dim, embedding_dim):
+    def __init__(self,vocab_size, hidden_dim, embedding_dim, bidirectn_flag=True):
         super(LSTM, self).__init__()
         self.vocab_size = vocab_size
         self.hidden_dim = hidden_dim
@@ -50,7 +50,7 @@ class LSTM(nn.Module):
 
         self.word_embeddings = nn.Embedding(vocab_size, embedding_dim)
 
-        self.lstm = nn.LSTM(embedding_dim, hidden_dim, bidirectional=True)
+        self.lstm = nn.LSTM(embedding_dim, hidden_dim, bidirectional=bidirectn_flag)
         self.hidden = self.init_hidden()
 
     def init_hidden(self):
@@ -96,8 +96,9 @@ class ELBO():
         # elbo_p3 = np.sum([(1 + np.log(z_param[i, 1]**2) - z_param[i, 0]**2 - z_param[i, 1]**2)/2 for i in range(0,m)])
         kl = torch.zeros([1,1])
         for i in range(0, self.m):
-            # print(z_param[i, 0],"\n",z_param[i, 1])
+            # print(z_param[i, 0],"\n*", z_param[i, 1])
             kl += (1 + torch.log(z_param[i, 1]**2) - z_param[i, 0]**2 - z_param[i, 1]**2)/2
+            # print(kl)
             # TODO: multivariate KL
             # kl = 0.5*(np.log(1/np.linalg.det(z_param[i, 1].data.numpy())) - z_param.shape[2] +
             #           np.matrix.trace(np.matmul(np.linalg.inv(z_param[i, 1]),np.eye(z_param.shape[2]))) +

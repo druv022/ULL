@@ -28,8 +28,8 @@ L1_sentences = L1.get_words("english")
 L2_sentences = L2.get_words("french")
 
 # vocabulary, w2i, i2w, unigram
-V1 = Vocabulary(L1_sentences[0])
-V2 = Vocabulary(L2_sentences[0])
+V1 = Vocabulary(L1_sentences) # Testing: Remove restrictions
+V2 = Vocabulary(L2_sentences) # Testing: Remove restrictions
 
 z_table = dict()
 
@@ -68,7 +68,7 @@ for epoch in range(30):
         # print("*#*", len(h),h[0].squeeze())
         # print("chain 1 ", h.requires_grad)
 
-        print("ffnn3-4", len(h[0].squeeze()), int((len(h[0].squeeze()) + dim_Z) / 2), dim_Z)
+        # print("ffnn3-4", len(h[0].squeeze()), int((len(h[0].squeeze()) + dim_Z) / 2), dim_Z)
 
         ffnn3 = FFNN(len(h[0].squeeze()), int((len(h[0].squeeze()) + dim_Z)/2), dim_Z)
         ffnn4 = FFNN(len(h[0].squeeze()), int((len(h[0].squeeze()) + dim_Z)/2), dim_Z)
@@ -91,20 +91,12 @@ for epoch in range(30):
             # print("Chain 5", z_param[i,0,:].requires_grad)
             # print("Chain 6", z_param[i, 1, :].requires_grad)
 
-        # ffnn3.zero_grad()
-        # elbo_c = ELBO(m, n)
-        # opt3 = optim.Adam(ffnn3.parameters(), lr=0.01)
-        # elbo_p3 = elbo_c.elbo_p3(z_param)
-        # print(elbo_p3)
-        # elbo_p3.backward()
-        # opt3.step()
-
         # Generative network -------------------------------------------------------------------------------------------
         cat_x = torch.zeros(m, len(V1.w2i))
         cat_y = torch.zeros(m, len(V2.w2i))
 
-        print("fnn1", dim_Z,int((dim_Z + len(V1.w2i))/2),len(V1.w2i))
-        print("fnn2", dim_Z, int((dim_Z + len(V1.w2i)) / 2), len(V1.w2i))
+        # print("fnn1", dim_Z,int((dim_Z + len(V1.w2i))/2),len(V1.w2i))
+        # print("fnn2", dim_Z, int((dim_Z + len(V1.w2i)) / 2), len(V1.w2i))
 
         ffnn1 = FFNN(dim_Z, int((dim_Z + len(V1.w2i))/2), len(V1.w2i))
         ffnn2 = FFNN(dim_Z, int((dim_Z + len(V2.w2i))/2), len(V2.w2i))
@@ -127,13 +119,14 @@ for epoch in range(30):
         ffnn3.zero_grad()
         ffnn4.zero_grad()
 
-        print(list(ffnn1.parameters()), "\n\n2: ", list(ffnn2.parameters()), "\n\n3: ", list(ffnn3.parameters()), "\n\n4: ", list(ffnn4.parameters()), "\n\nL: ", list(lstm_1.parameters()))
+        # print(list(ffnn1.parameters()), "\n\n2: ", list(ffnn2.parameters()), "\n\n3: ", list(ffnn3.parameters()),
+        # "\n\n4: ", list(ffnn4.parameters()), "\n\nL: ", list(lstm_1.parameters()))
         params = list(ffnn1.parameters()) + list(ffnn2.parameters()) + list(ffnn3.parameters()) + list(ffnn4.parameters())\
                  + list(lstm_1.parameters())
         opt = optim.Adam(params)
         #
 
-        # # LOSS function ------------------------------------------------------------------------------------------------
+        # LOSS function ------------------------------------------------------------------------------------------------
         elbo_c = ELBO(m,n)
         elbo_p1 = elbo_c.elbo_p1(cat_x, sentence_L1t)
         # print("Chain 9 ",elbo_p1.requires_grad)
@@ -142,7 +135,7 @@ for epoch in range(30):
         elbo_p3 = elbo_c.elbo_p3(z_param)
         # print("Chain 11 ", elbo_p3.requires_grad)
         # print(elbo_p1.shape, elbo_p2.shape, elbo_p3.shape)
-        loss = -(elbo_p1 + elbo_p2 )#- elbo_p3)
+        loss = -(elbo_p1 + elbo_p2 - elbo_p3)
         # print("#*#*",loss)
         #
         loss.backward()
