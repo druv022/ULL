@@ -71,8 +71,8 @@ class SkipGram(nn.Module):
   """Skip gram model of word2vec.
     Attributes:
         emb_dime: Embedding dimention.
-        center_embed: Embedding for center word.
-        context_embed: Embedding for context words.
+        in_embed: Embedding for center word.
+        con_embed: Embedding for context words.
     """
 
   def __init__(self, vocab, embedding_dim):
