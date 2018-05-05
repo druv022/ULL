@@ -23,7 +23,7 @@ class FFNN(nn.Module):
         self.fc2 = nn.Linear(self.hidden_size, self.output_size)
         self.softmax = nn.Softmax()
 
-    def forward(self, x):
+    def forward(self, x, linear_activation=False):
 
         # print("*#",x.shape)
 
@@ -34,7 +34,8 @@ class FFNN(nn.Module):
         out = self.relu(out)
         out = self.fc2(out)
         # print(out.shape)
-        out = self.softmax(out)
+        if not linear_activation:
+            out = self.softmax(out)
 
         return out
 
