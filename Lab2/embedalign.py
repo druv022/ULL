@@ -54,17 +54,21 @@ class LSTM(nn.Module):
         self.hidden = self.init_hidden()
 
     def init_hidden(self):
-        return torch.rand([2, 1, self.hidden_dim]), torch.rand([2, 1, self.hidden_dim])
+        return torch.rand([2, 1, self.hidden_dim]).requires_grad_(True), torch.rand([2, 1, self.hidden_dim]).requires_grad_(True)
 
     def forward(self, sentence):
+        # print("@#@#@", sentence)
         embeds = self.word_embeddings(sentence)
+        # print("@#@#@", embeds)
         lstm_out, self.hidden = self.lstm(embeds.view(len(sentence), 1, -1), self.hidden)
+        print("@#@#@#@",self.hidden)
 
         # seq_len, batch, hidden_dim * directions
         return lstm_out
 
 
-class ELBO():
+
+class ELBO:
 
     def __init__(self,m,n):
         self.m = m
@@ -95,16 +99,23 @@ class ELBO():
     def elbo_p3(self, z_param):
         # elbo_p3 = np.sum([(1 + np.log(z_param[i, 1]**2) - z_param[i, 0]**2 - z_param[i, 1]**2)/2 for i in range(0,m)])
         kl = torch.zeros([1,1])
+        kl_m = torch.zeros([1,1])
         for i in range(0, self.m):
-            # print(z_param[i, 0],"\n*", z_param[i, 1])
-            kl += (1 + torch.log(z_param[i, 1]**2) - z_param[i, 0]**2 - z_param[i, 1]**2)/2
+            # print(i,1 + torch.log(z_param[i, 1]**2),torch.log(z_param[i, 1]**2) ,z_param[i, 0],z_param[i, 0]**2,"***", z_param[i, 1], z_param[i, 1]**2)
+            # kl += (1 + torch.log(z_param[i, 1]**2) - z_param[i, 0]**2 - z_param[i, 1]**2)/2
             # print(kl)
-            # TODO: multivariate KL
+
+            # print(z_param[i, 1]*torch.eye(z_param.shape[2]))
+            log_term = torch.log(torch.det(torch.eye(z_param.shape[2]))/torch.det(z_param[i, 1]*torch.eye(z_param.shape[2])))
+            # print(log_term)
+            trace_term = torch.sum(z_param[i, 1])
+            # print(trace_term)
+            sigma_term = torch.sum(z_param[i, 0]**2)
+            kl_m = 0.5 * (log_term + trace_term - z_param.shape[2] + sigma_term)
             # kl = 0.5*(np.log(1/np.linalg.det(z_param[i, 1].data.numpy())) - z_param.shape[2] +
             #           np.matrix.trace(np.matmul(np.linalg.inv(z_param[i, 1]),np.eye(z_param.shape[2]))) +
             #           np.matmul(np.matmul((z_param[i,0]).t(), np.linalg.inv(z_param[i, 1])),
             #           z_param[i,0]))
 
-        print("KL ", kl)
-        return kl
-
+        print("KL ", kl_m)
+        return kl_m
