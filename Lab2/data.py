@@ -8,38 +8,39 @@ import torch
 
 np.random.seed(7)
 
+
 class TokenizedCorpus:
-    """Reads input files, removes punctuation, stopwiords and returns a sentence iterator """
+    """Reads input files, removes punctuation, stopwords and returns a sentence iterator """
 
     def __init__(self, corpus):
         self.filename = corpus
-        
+        self.input_file = open(self.filename)
 
-    def get_words(self):
-        porter = PorterStemmer()
-        stop_words = set(stopwords.words("english"))
-        self.input_file = open(self.filename) 
+    def get_words(self, lang="english"):
+        porter = PorterStemmer()  # TODO:
+        stop_words = set(stopwords.words(lang))
 
         sentences = []
         
         for line in self.input_file:
             
-             tokens = word_tokenize(line)
+            tokens = word_tokenize(line,language=lang)
              
-             # Filterout Punctuation and Stopwords
-             line = [word for word in tokens if word.isalpha() if word not in stop_words]
-             sentences.append(line)
-        print("---Sentences Processed-------")
-        print()
+            # Filterout Punctuation and Stopwords
+            line = [word for word in tokens if word.isalpha() if word not in stop_words ]
+            sentences.append(line)
+        print("---Sentences Processed-------\n")
+
         return sentences
-             
+
+
 class Vocabulary:
 
     def __init__(self, sentences, window_size=2):
         # create mapping from word-2-index and index-2-word
         self.w2i = defaultdict(lambda: len(self.w2i))
         self.i2w = defaultdict(lambda: len(self.i2w))
-        self.vocab =[]
+        self.vocab = []
 
         # store frequency of words
         self.unigram = {}
@@ -57,7 +58,6 @@ class Vocabulary:
                 except:
                     self.unigram[token]=1
 
-
                 self.w2i[token]
                 self.i2w[self.w2i[token]] = token
                 # create vocubulary i.e uniuqe words
@@ -65,8 +65,7 @@ class Vocabulary:
                     self.vocab.append(token)
         
         # print(len(self.unigram.keys()), len(self.vocab))
-    
-    
+
     def get_context(self, sentences, window_size =2):
         # This is our data which is to be fed into NN i.e word_context_pair
         self.data = []
@@ -85,6 +84,7 @@ class Vocabulary:
                     self.data.append((cen_word, indx[context_pos]))
             # print(self.data)
             # print()
+
     def get_onehot(self,word_idx):
         x = np.zeros((len(word_idx),len(self.vocab)))
         for l in word_idx:
@@ -110,16 +110,15 @@ class Vocabulary:
         Z = sum(U_fre)
         P = U_fre/Z
 
-        #get distribution of words in the table
+        # get distribution of words in the table
         contri = np.round(P*self.table_size)
         
         for idx, c in enumerate(contri):
-            self.table+=[idx]*np.int(c)
-    
-    
+            self.table += [idx]*np.int(c)
+
     def negative_sampling(self, pairs, negative_samples=5):
         neg_word = np.random.choice(self.table, size = (len(pairs),negative_samples))
-        return neg_word 
+        return neg_word
 
              
 if __name__ == "__main__":
@@ -127,7 +126,9 @@ if __name__ == "__main__":
     
     # a = [['division'], ['poverty', 'also', 'expressed', 'terms',
     #     'increased', 'demand', 'food', 'banks'], ['Bob', 'Speller'], 
-    #     ['Mulroney', 'personally', 'demonized', 'patriotism', 'questioned'], ['members'], ['suggest', 'hon', 'chief', 'opposition', 'whip', 'would', 'like', 'know', 'voted', 'every', 'time', 'House', 'adjourns', 'Hansard', 'printed', 'list', 'everything'],
+    #     ['Mulroney', 'personally', 'demonized', 'patriotism', 'questioned'], ['members'], ['suggest', 'hon', 'chief',
+    #      'opposition', 'whip', 'would', 'like', 'know', 'voted', 'every', 'time', 'House', 'adjourns', 'Hansard',
+    #       'printed', 'list', 'everything'],
     #     ['urge', 'environment', 'minister', 'least', 'visit',
     #     'site', 'talk', 'concerned', 'citizens', 'appreciate', 'firsthand', 'important']]
 

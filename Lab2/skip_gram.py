@@ -8,16 +8,17 @@ import torch.optim as optim
 import argparse
 import time
 # ----------------------
-#Add CUDA 
+# Add CUDA
 # ---------------------
 CUDA = torch.cuda.is_available()
 print("CUDA: %s" % CUDA)
 # CUDA = False
 # ------------------------
 
+
 class Training:
     def __init__(self, epochs, training_file, embedding_dim=100,
-                                batch_size=32,window_size=2,negative_sample=5):
+                                batch_size=32, window_size=2, negative_sample=5):
             self.epochs = epochs
             self.training_file = training_file
             self.embedding_dim = embedding_dim
@@ -68,53 +69,51 @@ class Training:
 
 class SkipGram(nn.Module):
 
-  """Skip gram model of word2vec.
+    """Skip gram model of word2vec.
     Attributes:
         emb_dime: Embedding dimention.
         center_embed: Embedding for center word.
         context_embed: Embedding for context words.
     """
 
-  def __init__(self, vocab, embedding_dim):
-      super(SkipGram, self).__init__()
-      self.vocab_size = len(vocab)
-      self.embedding_dim = embedding_dim
-      self.get_tensor()
+    def __init__(self, vocab, embedding_dim):
+          super(SkipGram, self).__init__()
+          self.vocab_size = len(vocab)
+          self.embedding_dim = embedding_dim
+          self.get_tensor()
   
  
-  def get_tensor(self):
+    def get_tensor(self):
 
-      if CUDA:
-         self.in_embed  = torch.randn(self.embedding_dim, self.vocab_size).cuda().requires_grad_(True)
-         self.out_embed = torch.randn(self.vocab_size, self.embedding_dim).cuda().requires_grad_(True)
-      else:
-         self.in_embed  = torch.randn(self.embedding_dim, self.vocab_size, requires_grad=True)
-         self.out_embed = torch.randn(self.vocab_size, self.embedding_dim, requires_grad=True)
-         
-  
+        if CUDA:
+            self.in_embed  = torch.randn(self.embedding_dim, self.vocab_size).cuda().requires_grad_(True)
+            self.out_embed = torch.randn(self.vocab_size, self.embedding_dim).cuda().requires_grad_(True)
+        else:
+            self.in_embed  = torch.randn(self.embedding_dim, self.vocab_size, requires_grad=True)
+            self.out_embed = torch.randn(self.vocab_size, self.embedding_dim, requires_grad=True)
 
-  def forward(self, cen_word, con_word, neg_word):
-      #-----------------
+    def forward(self, cen_word, con_word, neg_word):
+          # -----------------
 
-      #------------------ 
-      
-      h_embed = torch.matmul(cen_word, self.in_embed.t())
-      h_embed = torch.matmul(h_embed, self.out_embed.t())
-      
-      #combine neg and con word fro a particular center word
-      neg_con = torch.cat((con_word.unsqueeze(-1), neg_word), 1)
-      #get score correponding indexes
-      h_score = h_embed.gather(1,neg_con)
-      #split
-      con_score, neg_score = h_score[:,0:1], h_score[:,1:]
-      con_score, neg_score = F.logsigmoid(con_score), F.logsigmoid(-neg_score)
-      neg_score = torch.sum(neg_score, dim=1).unsqueeze(-1)
+          # ------------------
 
-      h_score = torch.cat((con_score, neg_score),1) 
-      h_score = -1*torch.sum(torch.sum(h_score,dim=1).unsqueeze(-1),dim=0)
-      
+          h_embed = torch.matmul(cen_word, self.in_embed.t())
+          h_embed = torch.matmul(h_embed, self.out_embed.t())
 
-      return h_score
+          #combine neg and con word fro a particular center word
+          neg_con = torch.cat((con_word.unsqueeze(-1), neg_word), 1)
+          #get score correponding indexes
+          h_score = h_embed.gather(1,neg_con)
+          #split
+          con_score, neg_score = h_score[:,0:1], h_score[:,1:]
+          con_score, neg_score = F.logsigmoid(con_score), F.logsigmoid(-neg_score)
+          neg_score = torch.sum(neg_score, dim=1).unsqueeze(-1)
+
+          h_score = torch.cat((con_score, neg_score),1)
+          h_score = -1*torch.sum(torch.sum(h_score,dim=1).unsqueeze(-1),dim=0)
+
+
+          return h_score
 
 
 if __name__ =="__main__":
