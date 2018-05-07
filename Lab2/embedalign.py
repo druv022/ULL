@@ -57,7 +57,7 @@ class LSTM(nn.Module):
         direction_dim = 1
         if d_flag:
             direction_dim = 2
-        return torch.zeros([direction_dim, 1, self.hidden_dim]).requires_grad_(True), torch.zeros([direction_dim, 1, self.hidden_dim]).requires_grad_(True)
+        return torch.rand([direction_dim, 1, self.hidden_dim]).requires_grad_(True), torch.rand([direction_dim, 1, self.hidden_dim]).requires_grad_(True)
 
     def forward(self, sentence):
         # print("@#@#@", sentence)
@@ -87,7 +87,7 @@ class ELBO:
         for i,token in enumerate(sentence_l1t):
             loss += torch.log(cat_x[i,token])
 
-        print("Loss 1", loss)
+        # print("Loss 1", loss)
         return loss
 
     def elbo_p2(self, cat_y, sentence_l2t):
@@ -100,7 +100,7 @@ class ELBO:
 
             loss += torch.log(loss_temp)
 
-        print("Loss 2", loss)
+        # print("Loss 2", loss)
         return loss
 
     def elbo_p3(self, z_param):
@@ -124,5 +124,5 @@ class ELBO:
             #           np.matmul(np.matmul((z_param[i,0]).t(), np.linalg.inv(z_param[i, 1])),
             #           z_param[i,0]))
 
-        print("KL ", kl_m)
+        # print("KL ", kl_m)
         return kl_m
