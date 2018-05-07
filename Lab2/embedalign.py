@@ -51,19 +51,26 @@ class LSTM(nn.Module):
         self.word_embeddings = nn.Embedding(vocab_size, embedding_dim)
 
         self.lstm = nn.LSTM(embedding_dim, hidden_dim, bidirectional=bidirectn_flag)
-        self.hidden = self.init_hidden()
+        self.hidden = self.init_hidden(bidirectn_flag)
 
-    def init_hidden(self):
-        return torch.rand([2, 1, self.hidden_dim]).requires_grad_(True), torch.rand([2, 1, self.hidden_dim]).requires_grad_(True)
+    def init_hidden(self, d_flag):
+        direction_dim = 1
+        if d_flag:
+            direction_dim = 2
+        return torch.zeros([direction_dim, 1, self.hidden_dim]).requires_grad_(True), torch.zeros([direction_dim, 1, self.hidden_dim]).requires_grad_(True)
 
     def forward(self, sentence):
         # print("@#@#@", sentence)
         embeds = self.word_embeddings(sentence)
+        # embeds = sentence # testing code
         # print("@#@#@", embeds)
+        # print("@#@#@#@", self.hidden)
         lstm_out, self.hidden = self.lstm(embeds.view(len(sentence), 1, -1), self.hidden)
-        print("@#@#@#@",self.hidden)
+        # print("@#@#@#@",self.hidden)
 
         # seq_len, batch, hidden_dim * directions
+        # print("@#@#@#@",lstm_out.shape)
+        # print("@#@#@#@", lstm_out)
         return lstm_out
 
 

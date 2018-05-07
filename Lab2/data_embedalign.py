@@ -46,7 +46,7 @@ def printgradnorm(self, grad_input, grad_output):
 L1_data = "./data/wa/dev.en"
 L2_data = "./data/wa/dev.fr"
 
-dim_Z = 2
+dim_Z = 3
 
 # sentences
 L1 = TokenizedCorpus(L1_data)
@@ -67,6 +67,41 @@ print(V1.vocab)
 print(V2.vocab)
 
 z_table = dict()
+hidden_dim = 6
+embedding_dim = 5
+
+lstm_1 = LSTM(len(V1.w2i), hidden_dim, embedding_dim, bidirectn_flag=True)
+# lstm_2 = LSTM(len(V1.w2i), hidden_dim, embedding_dim, bidirectn_flag=False)
+ffnn1 = FFNN(dim_Z, int((dim_Z + len(V1.w2i)) / 2), len(V1.w2i))
+ffnn2 = FFNN(dim_Z, int((dim_Z + len(V2.w2i)) / 2), len(V2.w2i))
+ffnn3 = FFNN(hidden_dim, int((hidden_dim + dim_Z) / 2), dim_Z)
+ffnn4 = FFNN(hidden_dim, int((hidden_dim + dim_Z) / 2), dim_Z)
+
+lstm_1.register_forward_hook(printnorm)
+lstm_1.register_backward_hook(printgradnorm)
+# lstm_2.register_forward_hook(printnorm)
+# lstm_2.register_backward_hook(printgradnorm)
+lstm_1.word_embeddings.register_forward_hook(printnorm)
+lstm_1.word_embeddings.register_backward_hook(printgradnorm)
+# lstm_2.word_embeddings.register_forward_hook(printnorm)
+# lstm_2.word_embeddings.register_backward_hook(printgradnorm)
+
+ffnn1.register_forward_hook(printnorm)
+ffnn2.register_forward_hook(printnorm)
+ffnn1.register_backward_hook(printgradnorm)
+ffnn2.register_backward_hook(printgradnorm)
+ffnn3.register_forward_hook(printnorm)
+ffnn4.register_forward_hook(printnorm)
+ffnn3.register_backward_hook(printgradnorm)
+ffnn4.register_backward_hook(printgradnorm)
+
+print("embed1 param", list(lstm_1.word_embeddings.parameters()))
+# print("embed2 param", list(lstm_2.word_embeddings.parameters()))
+
+# embeds = Embedding(len(V1.w2i), embedding_dim)
+# embeds.register_forward_hook(printnorm)
+# embeds.register_backward_hook(printgradnorm)
+
 
 for epoch in range(30):
     for x, sentence_L1 in enumerate(L1_sentences):
@@ -86,8 +121,7 @@ for epoch in range(30):
         multivariate_n = MultivariateNormal(torch.zeros(dim_Z), torch.eye(dim_Z))
 
         # Inference Network --------------------------------------------------------------------------------------------
-        hidden_dim = 4
-        embedding_dim = 5
+
 
         # bow = BOW(len(V1.w2i), embedding_dim)
         # h_11 = bow(sentence_L1t)
@@ -95,13 +129,14 @@ for epoch in range(30):
         # h = [h_11]
 
         # print("@#@@#",len(V1.w2i), hidden_dim, embedding_dim)
-        lstm_1 = LSTM(len(V1.w2i), hidden_dim, embedding_dim)
+
         h_1 = lstm_1(sentence_L1t)
+        inv_idx = torch.arange(sentence_L1t.size(0)-1, -1, -1).long()
+        inv_tensor = sentence_L1t.index_select(0, inv_idx)
+        # h_2 = lstm_2(inv_tensor)
+        # h = h_1 + h_2
 
-        lstm_1.register_forward_hook(printnorm)
-        lstm_1.register_backward_hook(printgradnorm)
-
-        z_param = torch.zeros([m,2,dim_Z])
+        z_param = torch.zeros([m, 2, dim_Z])
 
         # print("@@@@",h_1.shape,h_1,"\n",h_1[:,:,0:hidden_dim],h_1[:,:,hidden_dim:])
         h = (h_1[:,:,0:hidden_dim] + h_1[:,:,hidden_dim:])/2
@@ -109,14 +144,6 @@ for epoch in range(30):
         print("chain 1 ", h.requires_grad)
 
         print("ffnn3-4", len(h[0].squeeze()), int((len(h[0].squeeze()) + dim_Z) / 2), dim_Z)
-
-        ffnn3 = FFNN(len(h[0].squeeze()), int((len(h[0].squeeze()) + dim_Z)/2), dim_Z)
-        ffnn4 = FFNN(len(h[0].squeeze()), int((len(h[0].squeeze()) + dim_Z)/2), dim_Z)
-
-        ffnn3.register_forward_hook(printnorm)
-        ffnn4.register_forward_hook(printnorm)
-        ffnn3.register_backward_hook(printgradnorm)
-        ffnn4.register_backward_hook(printgradnorm)
 
         print(len(h))
 
@@ -147,14 +174,6 @@ for epoch in range(30):
         print("fnn1", dim_Z,int((dim_Z + len(V1.w2i))/2),len(V1.w2i))
         print("fnn2", dim_Z, int((dim_Z + len(V2.w2i)) / 2), len(V2.w2i))
 
-        ffnn1 = FFNN(dim_Z, int((dim_Z + len(V1.w2i))/2), len(V1.w2i))
-        ffnn2 = FFNN(dim_Z, int((dim_Z + len(V2.w2i))/2), len(V2.w2i))
-
-        ffnn1.register_forward_hook(printnorm)
-        ffnn2.register_forward_hook(printnorm)
-        ffnn1.register_backward_hook(printgradnorm)
-        ffnn2.register_backward_hook(printgradnorm)
-
         print(m)
 
         for i in range(0, m):
@@ -172,15 +191,16 @@ for epoch in range(30):
             # print("Chain 8", cat_y[i, :].requires_grad)
 
         # ------------------------------------------------
+        lstm_1.zero_grad()
         ffnn1.zero_grad()
         ffnn2.zero_grad()
         ffnn3.zero_grad()
         ffnn4.zero_grad()
 
         print(list(ffnn1.parameters()), "\n\n2: ", list(ffnn2.parameters()), "\n\n3: ", list(ffnn3.parameters()),
-        "\n\n4: ", list(ffnn4.parameters()), "\n\nL: ", list(lstm_1.parameters()))
-        params = list(ffnn1.parameters()) + list(ffnn2.parameters()) + list(ffnn3.parameters()) + list(ffnn4.parameters())#\
-                 #+ list(lstm_1.parameters())
+        "\n\n4: ", list(ffnn4.parameters()), "\n\nL: ", list(lstm_1.parameters()))#,"\n\nL2", list(lstm_2.parameters()))
+        params = list(ffnn1.parameters()) + list(ffnn2.parameters()) + list(ffnn3.parameters()) + list(ffnn4.parameters())\
+                 + list(lstm_1.parameters()) #+ list(lstm_2.parameters())
         opt = optim.Adam(params)
         #
 
