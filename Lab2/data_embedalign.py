@@ -43,6 +43,7 @@ def printgradnorm(self, grad_input, grad_output):
     print('------------------------------------------')
 
 
+
 L1_data = "./data/wa/dev.en"
 L2_data = "./data/wa/dev.fr"
 
@@ -50,7 +51,7 @@ L2_data = "./data/wa/dev.fr"
 # L2_data = "./data/hansards/training.fr"
 
 
-dim_Z = 3
+dim_Z = 30
 
 # sentences
 L1 = TokenizedCorpus(L1_data)
@@ -70,8 +71,9 @@ V2 = Vocabulary(L2_sentences)
 z_table = dict()
 hidden_dim = 6
 embedding_dim = 5
+pad = V1.w2i["<pad>"]
 
-lstm_1 = LSTM(len(V1.w2i), hidden_dim, embedding_dim, bidirectn_flag=True)
+lstm_1 = LSTM(len(V1.w2i), hidden_dim, embedding_dim, pad, batch_size=1 ,bidirectn_flag=True)
 # lstm_2 = LSTM(len(V1.w2i), hidden_dim, embedding_dim, bidirectn_flag=False)
 ffnn1 = FFNN(dim_Z, int((dim_Z + len(V1.w2i)) / 2), len(V1.w2i))
 ffnn2 = FFNN(dim_Z, int((dim_Z + len(V2.w2i)) / 2), len(V2.w2i))
@@ -104,7 +106,7 @@ ffnn4 = FFNN(hidden_dim, int((hidden_dim + dim_Z) / 2), dim_Z)
 # embeds.register_backward_hook(printgradnorm)
 
 
-for epoch in range(30):
+for epoch in range(1):
     print("*****************EPOCH ",epoch,"**************************")
     for x, sentence_L1 in enumerate(L1_sentences):
         sentence_L1t = torch.Tensor(tokenize_sentence(sentence_L1, V1.w2i)).long()
@@ -133,8 +135,8 @@ for epoch in range(30):
         # print("@#@@#",len(V1.w2i), hidden_dim, embedding_dim)
 
         h_1 = lstm_1(sentence_L1t)
-        inv_idx = torch.arange(sentence_L1t.size(0)-1, -1, -1).long()
-        inv_tensor = sentence_L1t.index_select(0, inv_idx)
+        # inv_idx = torch.arange(sentence_L1t.size(0)-1, -1, -1).long()
+        # inv_tensor = sentence_L1t.index_select(0, inv_idx)
         # h_2 = lstm_2(inv_tensor)
         # h = h_1 + h_2
 
@@ -147,7 +149,7 @@ for epoch in range(30):
         #
         # print("ffnn3-4", len(h[0].squeeze()), int((len(h[0].squeeze()) + dim_Z) / 2), dim_Z)
 
-        # print(len(h))
+        print(h.shape, len(h))
 
         for i in range(0, len(h)):
             # print("***",h[i].squeeze())
@@ -155,6 +157,7 @@ for epoch in range(30):
 
             mu_h = ffnn3(h[i].squeeze(), linear_activation = True)
             # print("Chain 2 ", mu_h.requires_grad)
+            # print(mu_h.shape)
 
             # print("FOR ffnn4 i", i)
             ffnn4.softmax = Softplus()

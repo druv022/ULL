@@ -14,29 +14,32 @@ class TokenizedCorpus:
 
     def __init__(self, corpus):
         self.filename = corpus
-        self.input_file = open(self.filename)
 
-    def get_words(self, lang="english"):
+    def get_words(self, lang="english", read_lines=0):
         porter = PorterStemmer()  # TODO:
         stop_words = set(stopwords.words(lang))
 
         sentences = []
-        
-        for line in self.input_file:
-            
-            tokens = word_tokenize(line,language=lang)
-             
-            # Filterout Punctuation and Stopwords
-            line = [word for word in tokens if word.isalpha() if word not in stop_words ]
-            sentences.append(line)
-        print("---Sentences Processed-------\n")
+        counter = 0
+        with open(self.filename,'r') as input_file:
+            for line in input_file:
+
+                if read_lines != 0 and counter == read_lines:
+                    break
+
+                tokens = word_tokenize(line,language=lang)
+
+                # Filterout Punctuation and Stopwords
+                line = [word for word in tokens if word.isalpha() if word not in stop_words ]
+                sentences.append(line)
+            print("---Sentences Processed-------\n")
 
         return sentences
 
 
 class Vocabulary:
 
-    def __init__(self, sentences, window_size=2):
+    def __init__(self, sentences, window_size=2, process_all=True):
         # create mapping from word-2-index and index-2-word
         self.w2i = defaultdict(lambda: len(self.w2i))
         self.i2w = defaultdict(lambda: len(self.i2w))
@@ -45,8 +48,9 @@ class Vocabulary:
         # store frequency of words
         self.unigram = {}
         self.build_vocab(sentences)
-        self.get_context(sentences, window_size) 
-        self.negative_sampling_table()
+        if process_all:
+            self.get_context(sentences, window_size)
+            self.negative_sampling_table()
         UNK = self.w2i["<unk>"]
         PAD = self.w2i["<pad>"]
 
