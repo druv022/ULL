@@ -126,5 +126,5 @@ if __name__ == "__main__":
     L1_data = "./data/hansards/training.en"
     L2_data = "./data/hansards/training.fr"
 
-    training = Training([L1_data, L2_data], 1000, batch_size=30, dim_z=100, read=100)
+    training = Training([L1_data, L2_data], 1000, batch_size=30, dim_z=32, embedding_dim=32, hidden_dim=32, read=31)
     training.train()
