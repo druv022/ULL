@@ -4,6 +4,7 @@ from nltk.tokenize import word_tokenize
 from nltk.stem.porter import PorterStemmer
 from nltk.corpus import stopwords
 import torch
+import json
 
 
 np.random.seed(7)
@@ -134,10 +135,22 @@ class Vocabulary:
     def get_index(self, word):
         if self.unigram[word] > 5:
             index = self.w2i_f[word]
+            self.i2w_f[self.w2i[word]] = word
         else:
             index = self.w2i_f["<unk>"]
 
         return index
+
+    def save_word_indexes(self,name):
+        with open(name+"_w2i.json","w") as f1:
+            json.dump(self.w2i, f1)
+        with open(name+"_i2w.json","w") as f1_:
+            json.dump(self.i2w_f, f1_)
+
+        with open(name+"_w2i_f.json","w") as f2:
+            json.dump(self.w2i_f, f2)
+        with open(name + "_i2w_f.json", "w") as f2_:
+            json.dump(self.i2w_f, f2_)
 
              
 if __name__ == "__main__":

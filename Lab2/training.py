@@ -6,6 +6,7 @@ import torch.optim as optim
 from torch.distributions.multivariate_normal import MultivariateNormal
 import time
 import pickle
+import copy
 
 torch.manual_seed(1)
 
@@ -48,7 +49,10 @@ class Training:
         sentence_t = []
 
         for i, word in enumerate(sentence):
-            sentence_t.append(V.get_index(word))
+            if word in V.w2i:
+                sentence_t.append(V.get_index(word))
+            else:
+                sentence_t.append(V.w2i_f["<unk>"])
 
         len_sentence_t = len(sentence_t)
         if len_sentence_t < self.sentence_length:
@@ -131,12 +135,55 @@ class Training:
 
                 loss = -(elbo_p1 + elbo_p2 - elbo_p3)
 
-                training_loss += loss
+                training_loss += loss.data[0]
                 loss.backward(retain_graph=True)
                 opt.step()
 
+
             print("iter %r: loss=%.4f, time=%.2fs" %
                       (epoch, training_loss / updates, time.time() - start))
+
+        torch.save(training.ffnn1,'ffnn1.pt')
+        torch.save(training.ffnn2,'ffnn2.pt')
+        torch.save(training.ffnn3,'ffnn3.pt')
+        torch.save(training.ffnn4,'ffnn4.pt')
+        torch.save(training.lstm,'ffnn5.pt')
+
+        self.V1.save_word_indexes("L1")
+        self.V2.save_word_indexes("L2")
+
+
+# def evaluation(training_obj, data_loc):
+#
+#     ffnn1 = training_obj.ffnn1
+#     ffnn2 = training_obj.ffnn2
+#     ffnn3 = training_obj.ffnn3
+#     ffnn4 = training_obj.ffnn4
+#
+#     l1, l2 = TokenizedCorpus(data_loc[0]), TokenizedCorpus(data_loc[1])
+#     L1_sentences = l1.get_words("english")
+#     L2_sentences = l2.get_words("french")
+#
+#     L1_tokenized = training_obj.tokenize_data(L1_sentences, training_obj.V1)
+#     L2_tokenized = training_obj.tokenize_data(L2_sentences, training_obj.V2)
+#
+#     for i,sentence in enumerate(L1_tokenized):
+#         l1_sentence = sentence
+#         l2_sentence = L2_tokenized[i]
+#
+#         for i,word in l2_sentence:
+
+
+
+
+
+
+    # given a word in y we need the aligned word in x
+    # for y
+    # get all z corresponding to x
+    # get probability of y|z for all z
+    # the one z that gives highest probability is right alignment
+
 
 
 if __name__ == "__main__":
@@ -146,12 +193,8 @@ if __name__ == "__main__":
     L1_data = "./data/hansards/training.en"
     L2_data = "./data/hansards/training.fr"
 
-    training = Training([L1_data, L2_data], 1, batch_size=32, dim_z=100, embedding_dim=128, hidden_dim=100, read=0)
+    training = Training([L1_data, L2_data], 1, batch_size=64, dim_z=150, embedding_dim=128, hidden_dim=100, read=0)
     training.train()
 
-    # torch.save(training.ffnn1)
-    # torch.save(training.ffnn2)
-    # torch.save(training.ffnn3)
-    # torch.save(training.ffnn4)
-    # torch.save(training.lstm)
-    # pickle.dump(training,open("Embedalign.pkl","w"))
+
+
