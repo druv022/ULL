@@ -19,7 +19,7 @@ print("CUDA: %s" % CUDA)
 
 class Training:
     def __init__(self, epochs, training_file, name = "model/skipgram",embedding_dim=100,
-                                batch_size=128,window_size=2,negative_sample=5):
+                                batch_size=256,window_size=2,negative_sample=5):
             self.epochs = epochs
             self.training_file = training_file
             self.embedding_dim = embedding_dim
@@ -31,13 +31,13 @@ class Training:
             self.skip_data = VsGram(self.sentences, self.win_size)
             self.vocab = self.skip_data.w2i
             self.model = SkipGram(self.vocab, self.embedding_dim)
-            self.optimizer = optim.SparseAdam(self.model.parameters())
+            self.optimizer = optim.SparseAdam(self.model.parameters(), lr=0.001)
             self.name = "model/skipgram"
             
             #save w2i and i2w as json
-            with open(os.path.join(self.name+"i2w.txt"), "w") as out:
+            with open(os.path.join(self.name+"_i2w.txt"), "w") as out:
                     json.dump(self.skip_data.i2w, out, indent=4)
-            with open(os.path.join(self.name+"w2i.txt"), "w") as out:
+            with open(os.path.join(self.name+"_w2i.txt"), "w") as out:
                     json.dump(self.skip_data.w2i, out, indent=4)
 
 
@@ -50,14 +50,15 @@ class Training:
         prev_loss = None
 
         for ITER in range(self.epochs):
-            
-            train_loss = []
+            updates=0
+            train_loss =0
             start = time.time()
             for pos_pairs in self.skip_data.minibatch(self.batch_size):
-            
+                
+                    updates+=1
                     # cen_word = [(idx, pair[0]) for idx, pair in enumerate(pos_pairs)]
                     cen_word = [pair[0] for pair in pos_pairs]               
-                    con_word = [pair[1] for pair in pos_pairs]
+                    con_word = [pair[1:] for pair in pos_pairs]
                     neg_word = self.skip_data.negative_sampling(pos_pairs)
 
             #         #get one hot representation for center word
@@ -75,11 +76,12 @@ class Training:
                         neg_word = torch.LongTensor(neg_word)
 
                     self.loss = self.model.forward(cen_word, con_word, neg_word)
-                    train_loss.append(self.loss[0])
+                    train_loss+=self.loss[0]
+                    
                     self.model.zero_grad()
                     self.loss.backward()
                     self.optimizer.step()
-                    mloss = sum(train_loss)/len(train_loss)
+            mloss = train_loss/updates
             print("iter %r: loss=%.4f, time=%.2fs" %
               (ITER, mloss, time.time()-start))
             if not prev_loss or mloss < prev_loss:
@@ -149,27 +151,27 @@ class SkipGram(nn.Module):
       p_embed = self.out_embed(con_word)
       n_embed = self.out_embed(neg_word)
       
-      p_score = torch.mul(c_embed, p_embed)
+      p_score = torch.bmm( p_embed, c_embed.unsqueeze(-1)).squeeze(-1)
+
       p_score = torch.sum(p_score, dim=1).unsqueeze(-1)
       p_score = F.logsigmoid(p_score)
       
 
-      n_score = torch.bmm(n_embed, p_embed.unsqueeze(-1)).squeeze(-1)
+      n_score = torch.bmm(n_embed, c_embed.unsqueeze(-1)).squeeze(-1)
       n_score = F.logsigmoid(-1*n_score)
       n_score = torch.sum(n_score, dim=1)
 
-      comine_loss = -1*torch.sum(p_score+n_score, dim=1)
-      
-      loss = comine_loss.sum().unsqueeze(-1)
+      combine_loss = torch.sum(p_score+n_score, dim=1)
+      # loss = comine_loss.sum().unsqueeze(-1)
       
 
-      return loss
+      return -1*torch.mean(combine_loss).unsqueeze(-1)
 
 
 if __name__ =="__main__":
 
 
     train = Training(50, "data/hansards/training.en", 150)
-    # train = Training(50, "data/wa/dev.en", 300)
+    # train = Training(50, "data/wa/dev.en", 150)
 
     
