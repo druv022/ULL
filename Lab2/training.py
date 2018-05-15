@@ -1,10 +1,11 @@
 from data import TokenizedCorpus, Vocabulary
-from embedalign import FFNN, LSTM, ELBO
+from embedalign import FFNN, LSTM, ELBO, ApproxBiLSTM
 import torch
 from torch.nn import Softplus, Embedding
 import torch.optim as optim
 from torch.distributions.multivariate_normal import MultivariateNormal
 import time
+import pickle
 
 torch.manual_seed(1)
 
@@ -18,43 +19,51 @@ class Training:
         self.L2_sentences = l2.get_words("french", read_lines=read)
         self.V1 = Vocabulary(self.L1_sentences,process_all=False)
         self.V2 = Vocabulary(self.L2_sentences,process_all=False)
-        self.sentence_length = 5  # max number of tokens in a sentence
-        self.L1_data = self.tokenize_data(self.L1_sentences, self.V1.w2i)
-        self.L2_data = self.tokenize_data(self.L2_sentences, self.V2.w2i)
+        self.sentence_length = 64  # max number of tokens in a sentence
+        self.L1_data = self.tokenize_data(self.L1_sentences, self.V1)
+        self.L2_data = self.tokenize_data(self.L2_sentences, self.V2)
 
         self.epochs = epochs
         self.batch_size = batch_size
         self.dim_Z = dim_z
         self.embedding_dim = embedding_dim
         self.hidden_dim = hidden_dim
-        pad = self.V1.w2i["<pad>"]
+        pad = self.V1.w2i_f["<pad>"]
+
+        print(len(self.V1.w2i), len(self.V1.w2i))
+        print(len(self.V1.w2i_f), len(self.V1.w2i_f))
 
         # Networks
-        self.lstm = LSTM(len(self.V1.w2i), hidden_dim, embedding_dim, pad, bidirectn_flag=True, batch_first=True, batch_size=self.batch_size)
-        self.ffnn1 = FFNN(self.dim_Z, int((self.dim_Z + len(self.V1.w2i)) / 6), len(self.V1.w2i))
-        self.ffnn2 = FFNN(self.dim_Z, int((self.dim_Z + len(self.V2.w2i)) / 6), len(self.V2.w2i))
-        self.ffnn3 = FFNN(hidden_dim, int((hidden_dim + self.dim_Z) / 2), self.dim_Z)
-        self.ffnn4 = FFNN(hidden_dim, int((hidden_dim + self.dim_Z) / 2), self.dim_Z)
+        self.lstm = LSTM(len(self.V1.w2i_f), hidden_dim, embedding_dim, pad, bidirectn_flag=True, batch_first=True, batch_size=self.batch_size)
+        self.ffnn1 = FFNN(self.dim_Z, 250, len(self.V1.w2i_f))
+        self.ffnn2 = FFNN(self.dim_Z, 250, len(self.V2.w2i_f))
+        self.ffnn3 = FFNN(hidden_dim, self.dim_Z, hidden_size=250, hidden_layer=False) # when using LSTM
+        self.ffnn4 = FFNN(hidden_dim, self.dim_Z, hidden_size=250, hidden_layer=False) # when using LSTM
 
-    def tokenize_sentence(self, sentence, w2i):
+        # self.ffnn3 = FFNN(embedding_dim*2, self.dim_Z, hidden_size=250, hidden_layer= False)  # when using approx LSTM
+        # self.ffnn4 = FFNN(embedding_dim*2, self.dim_Z, hidden_size=250, hidden_layer= False)  # when using approx LSTM
+        # self.approxbi = ApproxBiLSTM(len(self.V1.w2i_f), embedding_dim, pad, batch_size=self.batch_size)
+
+    def tokenize_sentence(self, sentence, V):
         sentence_t = []
+
         for i, word in enumerate(sentence):
-            sentence_t.append(w2i[word])
+            sentence_t.append(V.get_index(word))
 
         len_sentence_t = len(sentence_t)
         if len_sentence_t < self.sentence_length:
             diff = self.sentence_length - len_sentence_t
-            pad = [w2i["<pad>"]] * diff
+            pad = [V.w2i_f["<pad>"]] * diff
             sentence_t = sentence_t + pad
         else:
             sentence_t = sentence_t[0:self.sentence_length]
 
         return sentence_t
 
-    def tokenize_data(self, sentences, w2i):
+    def tokenize_data(self, sentences, V):
         l_data = []
         for sentence in sentences:
-            l_data.append(self.tokenize_sentence(sentence, w2i))
+            l_data.append(self.tokenize_sentence(sentence, V))
 
         return torch.Tensor(l_data).long()
 
@@ -69,6 +78,7 @@ class Training:
         for epoch in range(self.epochs):
             print("*****************EPOCH ", epoch, "**************************")
             updates = 0
+            training_loss = 0
             start = time.time()
             multivariate_n = MultivariateNormal(torch.zeros(self.dim_Z), torch.eye(self.dim_Z))
             for L_batch in self.minibatch():
@@ -78,9 +88,14 @@ class Training:
 
                 if L1_batch.shape[0] != self.batch_size:
                     continue
-                h_1 = self.lstm(L1_batch)
 
+                h_1 = self.lstm(L1_batch)
                 h = (h_1[:, :, 0:self.hidden_dim] + h_1[:, :, self.hidden_dim:]) / 2
+
+                # h_1 = self.approxbi.getEmbedding(L1_batch)
+                # h = h_1
+
+                # print("@",h.shape)
 
                 mu_h = self.ffnn3(h, linear_activation=True)
                 self.ffnn4.softmax = Softplus()
@@ -98,8 +113,12 @@ class Training:
                 self.ffnn3.zero_grad()
                 self.ffnn4.zero_grad()
 
+                # when using LSTM
                 params = list(self.ffnn1.parameters()) + list(self.ffnn2.parameters()) + list(self.ffnn3.parameters()) \
                          + list(self.ffnn4.parameters()) + list(self.lstm.parameters())
+                # when using Approx LSTM
+                # params = list(self.ffnn1.parameters()) + list(self.ffnn2.parameters()) + list(self.ffnn3.parameters()) \
+                #          + list(self.ffnn4.parameters()) + list(self.approxbi.word_embeddings.parameters())
                 opt = optim.Adam(params)
 
                 elbo_c = ELBO(self.sentence_length, self.sentence_length)
@@ -110,13 +129,14 @@ class Training:
                 elbo_p3 = elbo_c.elbo_p3([mu_h, sigma])
                 # print(elbo_p3)
 
-                loss = -(elbo_p1 + elbo_p2 - elbo_p3)/self.batch_size
+                loss = -(elbo_p1 + elbo_p2 - elbo_p3)
 
+                training_loss += loss
                 loss.backward(retain_graph=True)
                 opt.step()
 
-                print("iter %r: loss=%.4f, time=%.2fs" %
-                      (epoch, loss / updates, time.time() - start))
+            print("iter %r: loss=%.4f, time=%.2fs" %
+                      (epoch, training_loss / updates, time.time() - start))
 
 
 if __name__ == "__main__":
@@ -126,5 +146,12 @@ if __name__ == "__main__":
     L1_data = "./data/hansards/training.en"
     L2_data = "./data/hansards/training.fr"
 
-    training = Training([L1_data, L2_data], 1000, batch_size=30, dim_z=32, embedding_dim=32, hidden_dim=32, read=31)
+    training = Training([L1_data, L2_data], 1, batch_size=32, dim_z=100, embedding_dim=128, hidden_dim=100, read=0)
     training.train()
+
+    # torch.save(training.ffnn1)
+    # torch.save(training.ffnn2)
+    # torch.save(training.ffnn3)
+    # torch.save(training.ffnn4)
+    # torch.save(training.lstm)
+    # pickle.dump(training,open("Embedalign.pkl","w"))

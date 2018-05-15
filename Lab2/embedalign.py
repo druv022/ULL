@@ -7,23 +7,27 @@ torch.manual_seed(1)
 
 class FFNN(nn.Module):
 
-    def __init__(self, input_size, hidden_size, output_size):
+    def __init__(self, input_size, output_size,hidden_size=250, hidden_layer = True):
         super(FFNN,self).__init__()
         self.input_size = input_size
         self.output_size = output_size
         self.hidden_size = hidden_size
 
-        self.fc1 = nn.Linear(self.input_size, self.hidden_size)
-        self.relu = nn.ReLU()
-        self.fc2 = nn.Linear(self.hidden_size, self.output_size)
+        if hidden_layer:
+            self.fc1 = nn.Linear(self.input_size, self.hidden_size)
+            self.relu = nn.ReLU()
+            self.fc2 = nn.Linear(self.hidden_size, self.output_size)
+        else:
+            self.fc1 = nn.Linear(self.input_size, self.output_size)
+
         self.softmax = nn.Softmax()
 
     def forward(self, x, linear_activation=False):
 
         out = self.fc1(x)
 
-        out = self.relu(out)
-        out = self.fc2(out)
+        # out = self.relu(out)
+        # out = self.fc2(out)
 
         if not linear_activation:
             out = self.softmax(out)
@@ -82,7 +86,7 @@ class ELBO:
                 loss += torch.log(cat_x[i,token])
         else:
             loss = torch.gather(cat_x,2,data_l1t.unsqueeze(-1).long())
-            loss = torch.sum(torch.log(loss))
+            loss = torch.mean(torch.log(loss))
 
         # print("Loss 1", loss)
         return loss
@@ -100,7 +104,7 @@ class ELBO:
         else:
             x = data_l2t.unsqueeze(1).repeat([1, self.m, 1])
             loss = torch.gather(cat_y,2,x)
-            loss = torch.sum(torch.log(torch.sum(loss, 1)/self.m))
+            loss = torch.mean(torch.log(torch.sum(loss, 1)/self.m))
 
         # print("Loss 2", loss)
         return loss
@@ -109,13 +113,17 @@ class ELBO:
         # elbo_p3 = np.sum([(1 + np.log(z_param[i, 1]**2) - z_param[i, 0]**2 - z_param[i, 1]**2)/2 for i in range(0,m)])
         # kl = torch.zeros([1,1])
         kl_m = torch.zeros([1,1])
+
         if isinstance(z_param,list):
             mu = z_param[0]
             sigma = z_param[1]
-
+            # print(sigma)
             log_term = torch.log(1/sigma.prod(dim=2))
+            # print(log_term)
             trace_term = torch.sum(sigma, 2)
+            # print(trace_term)
             mu_term = torch.sum(mu**2, 2)
+            # print(mu_term)
 
             kl_m = 0.5 * (log_term + trace_term + mu_term - mu.size()[-1])
 
@@ -133,4 +141,42 @@ class ELBO:
                 #           z_param[i,0]))
 
         # print("KL", torch.sum(kl_m))
-        return torch.sum(kl_m)
+        return torch.mean(kl_m)
+
+
+class ApproxBiLSTM:
+
+    def __init__(self, vocab_size, embedding_dim, pad,  batch_size=1):
+        self.vocab_size = vocab_size
+        self.embedding_dim = embedding_dim
+        self.batch_size = batch_size
+
+        self.word_embeddings = nn.Embedding(vocab_size, embedding_dim, pad)
+
+    def getEmbedding(self, data):
+
+        embeds = self.word_embeddings(data)
+        print("APPROX")
+        # print(embeds.shape)
+        if len(data.shape) < 2:
+            approx = torch.zeros([embeds.shape[0], embeds.shape[1]*2])
+            for i, embed in enumerate(embeds):
+                if i != 0:
+                    other_embeds = torch.cat((embeds[0:i:], embeds[i + 1::]), 0)
+                elif i == embeds.shape[0]:
+                    other_embeds = embeds[0:-1]
+                else:
+                    other_embeds = embeds[1:]
+
+                approx[i] = torch.cat((embed, torch.mean(other_embeds, 0)))
+        else:
+
+            embeds_n = torch.sum(embeds,dim=1)
+            # print(embeds.shape[1])
+            embeds_n = embeds_n.unsqueeze(1).repeat([1,embeds.shape[1],1])
+            embeds_n = torch.mean(embeds - embeds_n,dim=1)
+            embeds_n = embeds_n.unsqueeze(1).repeat([1, embeds.shape[1], 1])
+
+            approx = torch.cat((embeds,embeds_n),dim=2)
+
+        return approx

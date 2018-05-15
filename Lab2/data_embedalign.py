@@ -1,5 +1,5 @@
 from data import TokenizedCorpus, Vocabulary
-from embedalign import FFNN, LSTM, ELBO
+from embedalign import FFNN, LSTM, ELBO, ApproxBiLSTM
 import torch
 from torch.nn import  Softplus, Embedding
 import torch.optim as optim
@@ -73,12 +73,15 @@ hidden_dim = 6
 embedding_dim = 5
 pad = V1.w2i["<pad>"]
 
-lstm_1 = LSTM(len(V1.w2i), hidden_dim, embedding_dim, pad, batch_size=1 ,bidirectn_flag=True)
+# lstm_1 = LSTM(len(V1.w2i), hidden_dim, embedding_dim, pad, batch_size=1 ,bidirectn_flag=True)
 # lstm_2 = LSTM(len(V1.w2i), hidden_dim, embedding_dim, bidirectn_flag=False)
-ffnn1 = FFNN(dim_Z, int((dim_Z + len(V1.w2i)) / 2), len(V1.w2i))
-ffnn2 = FFNN(dim_Z, int((dim_Z + len(V2.w2i)) / 2), len(V2.w2i))
-ffnn3 = FFNN(hidden_dim, int((hidden_dim + dim_Z) / 2), dim_Z)
-ffnn4 = FFNN(hidden_dim, int((hidden_dim + dim_Z) / 2), dim_Z)
+ffnn1 = FFNN(dim_Z, 250, len(V1.w2i))
+ffnn2 = FFNN(dim_Z, 250, len(V2.w2i))
+# ffnn3 = FFNN(hidden_dim, 250, dim_Z)
+# ffnn4 = FFNN(hidden_dim, 250, dim_Z)
+ffnn3 = FFNN(embedding_dim*2, 250, dim_Z)
+ffnn4 = FFNN(embedding_dim*2, 250, dim_Z)
+approxbi = ApproxBiLSTM(len(V1.w2i), embedding_dim, pad, batch_size=1)
 
 # lstm_1.register_forward_hook(printnorm)
 # lstm_1.register_backward_hook(printgradnorm)
@@ -106,8 +109,9 @@ ffnn4 = FFNN(hidden_dim, int((hidden_dim + dim_Z) / 2), dim_Z)
 # embeds.register_backward_hook(printgradnorm)
 
 
-for epoch in range(1):
+for epoch in range(30):
     print("*****************EPOCH ",epoch,"**************************")
+    training_loss = 0
     for x, sentence_L1 in enumerate(L1_sentences):
         sentence_L1t = torch.Tensor(tokenize_sentence(sentence_L1, V1.w2i)).long()
         # print(sentence_L1t)
@@ -134,7 +138,8 @@ for epoch in range(1):
 
         # print("@#@@#",len(V1.w2i), hidden_dim, embedding_dim)
 
-        h_1 = lstm_1(sentence_L1t)
+        # h_1 = lstm_1(sentence_L1t)
+        h_1 = approxbi.getEmbedding(sentence_L1t)
         # inv_idx = torch.arange(sentence_L1t.size(0)-1, -1, -1).long()
         # inv_tensor = sentence_L1t.index_select(0, inv_idx)
         # h_2 = lstm_2(inv_tensor)
@@ -143,13 +148,14 @@ for epoch in range(1):
         z_param = torch.zeros([m, 2, dim_Z])
 
         # print("@@@@",h_1.shape,h_1,"\n",h_1[:,:,0:hidden_dim],h_1[:,:,hidden_dim:])
-        h = (h_1[:,:,0:hidden_dim] + h_1[:,:,hidden_dim:])/2
+        # h = (h_1[:,:,0:hidden_dim] + h_1[:,:,hidden_dim:])/2
+        h = h_1
         # print("*#*", len(h),h[0].squeeze())
         # print("chain 1 ", h.requires_grad)
         #
         # print("ffnn3-4", len(h[0].squeeze()), int((len(h[0].squeeze()) + dim_Z) / 2), dim_Z)
 
-        print(h.shape, len(h))
+        # print(h.shape, len(h))
 
         for i in range(0, len(h)):
             # print("***",h[i].squeeze())
@@ -196,7 +202,7 @@ for epoch in range(1):
             # print("Chain 7", cat_y[i, :].requires_grad)
 
         # ------------------------------------------------
-        lstm_1.zero_grad()
+        # lstm_1.zero_grad()
         ffnn1.zero_grad()
         ffnn2.zero_grad()
         ffnn3.zero_grad()
@@ -205,7 +211,7 @@ for epoch in range(1):
         # print(list(ffnn1.parameters()), "\n\n2: ", list(ffnn2.parameters()), "\n\n3: ", list(ffnn3.parameters()),
         # "\n\n4: ", list(ffnn4.parameters()), "\n\nL: ", list(lstm_1.parameters()))#,"\n\nL2", list(lstm_2.parameters()))
         params = list(ffnn1.parameters()) + list(ffnn2.parameters()) + list(ffnn3.parameters()) + list(ffnn4.parameters())\
-                 + list(lstm_1.parameters()) #+ list(lstm_2.parameters())
+                 #+ list(lstm_1.parameters()) #+ list(lstm_2.parameters())
         opt = optim.Adam(params)
         #
 
@@ -220,7 +226,8 @@ for epoch in range(1):
         # print(elbo_p1.shape, elbo_p2.shape, elbo_p3.shape)
         loss = -(elbo_p1 + elbo_p2 - elbo_p3)
         # print("Chain 11", loss.requires_grad)
-        print("TOTAL LOSS", loss, "\tKL", elbo_p3)
-
+        # print("TOTAL LOSS", loss, "\tKL", elbo_p3)
+        training_loss += loss
         loss.backward(retain_graph=True)
         opt.step()
+    print("LOSS", training_loss)

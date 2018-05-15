@@ -32,6 +32,7 @@ class TokenizedCorpus:
                 # Filterout Punctuation and Stopwords
                 line = [word for word in tokens if word.isalpha() if word not in stop_words ]
                 sentences.append(line)
+                counter += 1
             print("---Sentences Processed-------\n")
 
         return sentences
@@ -53,6 +54,12 @@ class Vocabulary:
             self.negative_sampling_table()
         UNK = self.w2i["<unk>"]
         PAD = self.w2i["<pad>"]
+
+        # filtered word index
+        self.w2i_f = defaultdict(lambda: len(self.w2i_f))
+        self.i2w_f = defaultdict(lambda: len(self.i2w_f))
+        UNK_f = self.w2i["<unk>"]
+        PAD_f = self.w2i["<pad>"]
 
     def build_vocab(self, sentences):
         for sen in sentences:
@@ -123,6 +130,14 @@ class Vocabulary:
     def negative_sampling(self, pairs, negative_samples=5):
         neg_word = np.random.choice(self.table, size = (len(pairs),negative_samples))
         return neg_word
+
+    def get_index(self, word):
+        if self.unigram[word] > 5:
+            index = self.w2i_f[word]
+        else:
+            index = self.w2i_f["<unk>"]
+
+        return index
 
              
 if __name__ == "__main__":
