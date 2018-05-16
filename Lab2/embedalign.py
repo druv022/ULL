@@ -78,20 +78,25 @@ class ELBO:
         self.m = m
         self.n = n
 
-    def elbo_p1(self,cat_x, data_l1t):
+    def elbo_p1(self,cat_x, data_l1t, mask):
         # elbo_p1 = np.sum(np.log([cat_x[i, token] for i, token in enumerate(sentence_L1t)]))
         if len(data_l1t.shape) < 2:
             loss = torch.zeros([1])
             for i,token in enumerate(data_l1t):
                 loss += torch.log(cat_x[i,token])
         else:
-            loss = torch.gather(cat_x,2,data_l1t.unsqueeze(-1).long())
-            loss = torch.mean(torch.log(loss))
+            # data_l1t = torch.mul(data_l1t, mask.long())
+            data_l1t = data_l1t.unsqueeze(-1)
+
+            loss = torch.gather(cat_x,2,data_l1t.long())
+            loss = torch.log(loss)
+            loss = torch.mul(loss,mask.unsqueeze(-1))
+            loss = torch.mean(loss)
 
         # print("Loss 1", loss)
         return loss
 
-    def elbo_p2(self, cat_y, data_l2t):
+    def elbo_p2(self, cat_y, data_l2t, mask):
         # elbo_p2 = np.sum([np.log(np.sum([cat_y[i, sentence_L2t[j]]/m for i in range(0, m)])) for j in range(0, n)])
         loss = torch.zeros([1])
         if len(data_l2t.shape) < 2:
@@ -104,7 +109,9 @@ class ELBO:
         else:
             x = data_l2t.unsqueeze(1).repeat([1, self.m, 1])
             loss = torch.gather(cat_y,2,x)
-            loss = torch.mean(torch.log(torch.sum(loss, 1)/self.m))
+            loss = torch.log(torch.sum(loss, 1)/self.m)
+            loss = torch.mul(loss,mask)
+            loss = torch.mean(loss)
 
         # print("Loss 2", loss)
         return loss

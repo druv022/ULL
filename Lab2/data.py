@@ -53,14 +53,16 @@ class Vocabulary:
         if process_all:
             self.get_context(sentences, window_size)
             self.negative_sampling_table()
-        UNK = self.w2i["<unk>"]
         PAD = self.w2i["<pad>"]
+        UNK = self.w2i["<unk>"]
+
 
         # filtered word index
         self.w2i_f = defaultdict(lambda: len(self.w2i_f))
         self.i2w_f = defaultdict(lambda: len(self.i2w_f))
-        UNK_f = self.w2i["<unk>"]
-        PAD_f = self.w2i["<pad>"]
+        PAD_f = self.w2i_f["<pad>"]
+        UNK_f = self.w2i_f["<unk>"]
+        self.ignore_less = 0
 
     def build_vocab(self, sentences):
         for sen in sentences:
@@ -133,7 +135,7 @@ class Vocabulary:
         return neg_word
 
     def get_index(self, word):
-        if self.unigram[word] > 5:
+        if self.unigram[word] > self.ignore_less:
             index = self.w2i_f[word]
             self.i2w_f[self.w2i[word]] = word
         else:

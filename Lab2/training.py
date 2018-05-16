@@ -7,6 +7,7 @@ from torch.distributions.multivariate_normal import MultivariateNormal
 import time
 import pickle
 import copy
+import numpy as np
 
 torch.manual_seed(1)
 
@@ -44,6 +45,14 @@ class Training:
         # self.ffnn3 = FFNN(embedding_dim*2, self.dim_Z, hidden_size=250, hidden_layer= False)  # when using approx LSTM
         # self.ffnn4 = FFNN(embedding_dim*2, self.dim_Z, hidden_size=250, hidden_layer= False)  # when using approx LSTM
         # self.approxbi = ApproxBiLSTM(len(self.V1.w2i_f), embedding_dim, pad, batch_size=self.batch_size)
+
+        # when using LSTM
+        params = list(self.ffnn1.parameters()) + list(self.ffnn2.parameters()) + list(self.ffnn3.parameters()) \
+                 + list(self.ffnn4.parameters()) + list(self.lstm.parameters())
+        # when using Approx LSTM
+        # params = list(self.ffnn1.parameters()) + list(self.ffnn2.parameters()) + list(self.ffnn3.parameters()) \
+        #          + list(self.ffnn4.parameters()) + list(self.approxbi.word_embeddings.parameters())
+        self.opt = optim.Adam(params)
 
     def tokenize_sentence(self, sentence, V):
         sentence_t = []
@@ -90,6 +99,10 @@ class Training:
                 L1_batch = L_batch[0]
                 L2_batch = L_batch[1]
 
+                mask_l1 = torch.Tensor(np.where(L1_batch > 0,1,0))
+                mask_l2 = torch.Tensor(np.where(L2_batch > 0, 1, 0))
+
+                # This check is required because the LSTM network depends on fixed batch size
                 if L1_batch.shape[0] != self.batch_size:
                     continue
 
@@ -117,18 +130,10 @@ class Training:
                 self.ffnn3.zero_grad()
                 self.ffnn4.zero_grad()
 
-                # when using LSTM
-                params = list(self.ffnn1.parameters()) + list(self.ffnn2.parameters()) + list(self.ffnn3.parameters()) \
-                         + list(self.ffnn4.parameters()) + list(self.lstm.parameters())
-                # when using Approx LSTM
-                # params = list(self.ffnn1.parameters()) + list(self.ffnn2.parameters()) + list(self.ffnn3.parameters()) \
-                #          + list(self.ffnn4.parameters()) + list(self.approxbi.word_embeddings.parameters())
-                opt = optim.Adam(params)
-
                 elbo_c = ELBO(self.sentence_length, self.sentence_length)
-                elbo_p1 = elbo_c.elbo_p1(cat_x, L1_batch)
+                elbo_p1 = elbo_c.elbo_p1(cat_x, L1_batch, mask_l1)
                 # print(elbo_p1)
-                elbo_p2 = elbo_c.elbo_p2(cat_y, L2_batch)
+                elbo_p2 = elbo_c.elbo_p2(cat_y, L2_batch, mask_l2)
                 # print(elbo_p2)
                 elbo_p3 = elbo_c.elbo_p3([mu_h, sigma])
                 # print(elbo_p3)
@@ -137,63 +142,30 @@ class Training:
 
                 training_loss += loss.data[0]
                 loss.backward(retain_graph=True)
-                opt.step()
+                self.opt.step()
 
 
             print("iter %r: loss=%.4f, time=%.2fs" %
                       (epoch, training_loss / updates, time.time() - start))
 
-        torch.save(training.ffnn1,'ffnn1.pt')
-        torch.save(training.ffnn2,'ffnn2.pt')
-        torch.save(training.ffnn3,'ffnn3.pt')
-        torch.save(training.ffnn4,'ffnn4.pt')
-        torch.save(training.lstm,'ffnn5.pt')
+        torch.save(training.ffnn1, 'ffnn1.pt')
+        torch.save(training.ffnn2, 'ffnn2.pt')
+        torch.save(training.ffnn3, 'ffnn3.pt')
+        torch.save(training.ffnn4, 'ffnn4.pt')
+        torch.save(training.lstm, 'ffnn5.pt')
 
         self.V1.save_word_indexes("L1")
         self.V2.save_word_indexes("L2")
 
 
-# def evaluation(training_obj, data_loc):
-#
-#     ffnn1 = training_obj.ffnn1
-#     ffnn2 = training_obj.ffnn2
-#     ffnn3 = training_obj.ffnn3
-#     ffnn4 = training_obj.ffnn4
-#
-#     l1, l2 = TokenizedCorpus(data_loc[0]), TokenizedCorpus(data_loc[1])
-#     L1_sentences = l1.get_words("english")
-#     L2_sentences = l2.get_words("french")
-#
-#     L1_tokenized = training_obj.tokenize_data(L1_sentences, training_obj.V1)
-#     L2_tokenized = training_obj.tokenize_data(L2_sentences, training_obj.V2)
-#
-#     for i,sentence in enumerate(L1_tokenized):
-#         l1_sentence = sentence
-#         l2_sentence = L2_tokenized[i]
-#
-#         for i,word in l2_sentence:
-
-
-
-
-
-
-    # given a word in y we need the aligned word in x
-    # for y
-    # get all z corresponding to x
-    # get probability of y|z for all z
-    # the one z that gives highest probability is right alignment
-
-
-
 if __name__ == "__main__":
-    # L1_data = "./data/wa/dev.en"
-    # L2_data = "./data/wa/dev.fr"
+    L1_data = "./data/wa/dev.en"
+    L2_data = "./data/wa/dev.fr"
 
-    L1_data = "./data/hansards/training.en"
-    L2_data = "./data/hansards/training.fr"
+    # L1_data = "./data/hansards/training.en"
+    # L2_data = "./data/hansards/training.fr"
 
-    training = Training([L1_data, L2_data], 1, batch_size=64, dim_z=150, embedding_dim=128, hidden_dim=100, read=0)
+    training = Training([L1_data, L2_data], 10, batch_size=32, dim_z=150, embedding_dim=128, hidden_dim=100, read=000)
     training.train()
 
 
