@@ -135,13 +135,13 @@ def evaluation(models, data_loc):
                 cat_y = ffnn2(l1_z)
                 print(i)
                 for j, word in enumerate(l2_sentence):
-                    print(j,word)
-                    # if word != pad_l2:
-                    print(i,j)
-                    x = cat_y[:,word].unsqueeze(0)
-                    x = torch.mul(torch.Tensor(np.where(L1_batch[i,:] > 0, 1, 0)),x)
-                    value, index = torch.max(x, 1)
-                    aerf.write(str(1+i+batch_counter*batch_size)+" "+ str(int(index)+1) + " " + str(j+1) + " P\n")
+                    print("j,word",j,word)
+                    if word != pad_l2:
+                        x = cat_y[:,word].unsqueeze(0)
+                        x = torch.mul(torch.Tensor(np.where(L1_batch[i,:] > 0, 1, 0)),x)
+                        value, index = torch.max(x, 1)
+                        print("@", i, j, index)
+                        aerf.write(str(1+i+batch_counter*batch_size)+" "+ str(int(index)+1) + " " + str(j+1) + " P\n")
 
         batch_counter += 1
 
