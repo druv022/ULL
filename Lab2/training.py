@@ -15,13 +15,22 @@ torch.manual_seed(1)
 class Training:
 
     def __init__(self, data_loc, epochs=30, batch_size = 32, dim_z=32, embedding_dim=128, hidden_dim=100, read=0):
-        # data_loc: list of location of L1 and L2;[L1, L2]
+        '''
+        :param data_loc: list of location of L1 and L2;[L1, L2]
+        :param epochs: number of epoch
+        :param batch_size: batch size
+        :param dim_z: dimension of latent variable
+        :param embedding_dim: dimension of internal word embedding
+        :param hidden_dim: dimension of final word embedding
+        :param read: the number of lines to be read, pass 0 for all
+        '''
+
         l1, l2 = TokenizedCorpus(data_loc[0]), TokenizedCorpus(data_loc[1])
         self.L1_sentences = l1.get_words("english", read_lines=read)
         self.L2_sentences = l2.get_words("french", read_lines=read)
         self.V1 = Vocabulary(self.L1_sentences,process_all=False)
         self.V2 = Vocabulary(self.L2_sentences,process_all=False)
-        self.sentence_length = 64  # max number of tokens in a sentence
+        self.sentence_length = 64     # max number of tokens in a sentence
         self.L1_data = self.tokenize_data(self.L1_sentences, self.V1)
         self.L2_data = self.tokenize_data(self.L2_sentences, self.V2)
 
@@ -32,9 +41,6 @@ class Training:
         self.hidden_dim = hidden_dim
         pad = self.V1.w2i_f["<pad>"]
 
-        print(len(self.V1.w2i), len(self.V1.w2i))
-        print(len(self.V1.w2i_f), len(self.V1.w2i_f))
-
         # Networks
         self.lstm = LSTM(len(self.V1.w2i_f), hidden_dim, embedding_dim, pad, bidirectn_flag=True, batch_first=True, batch_size=self.batch_size)
         self.ffnn1 = FFNN(self.dim_Z, 250, len(self.V1.w2i_f))
@@ -42,18 +48,21 @@ class Training:
         self.ffnn3 = FFNN(hidden_dim, self.dim_Z, hidden_size=250, hidden_layer=False) # when using LSTM
         self.ffnn4 = FFNN(hidden_dim, self.dim_Z, hidden_size=250, hidden_layer=False) # when using LSTM
 
+        # This is not tested thoroughly
         # self.ffnn3 = FFNN(embedding_dim*2, self.dim_Z, hidden_size=250, hidden_layer= False)  # when using approx LSTM
         # self.ffnn4 = FFNN(embedding_dim*2, self.dim_Z, hidden_size=250, hidden_layer= False)  # when using approx LSTM
         # self.approxbi = ApproxBiLSTM(len(self.V1.w2i_f), embedding_dim, pad, batch_size=self.batch_size)
+        # when using Approx LSTM
+        # params = list(self.ffnn1.parameters()) + list(self.ffnn2.parameters()) + list(self.ffnn3.parameters()) \
+        #          + list(self.ffnn4.parameters()) + list(self.approxbi.word_embeddings.parameters())
 
         # when using LSTM
         params = list(self.ffnn1.parameters()) + list(self.ffnn2.parameters()) + list(self.ffnn3.parameters()) \
                  + list(self.ffnn4.parameters()) + list(self.lstm.parameters())
-        # when using Approx LSTM
-        # params = list(self.ffnn1.parameters()) + list(self.ffnn2.parameters()) + list(self.ffnn3.parameters()) \
-        #          + list(self.ffnn4.parameters()) + list(self.approxbi.word_embeddings.parameters())
+
         self.opt = optim.Adam(params)
 
+    # This method tokenize sentences based on the type of vocabulary object(language specific)
     def tokenize_sentence(self, sentence, V):
         sentence_t = []
 
@@ -73,6 +82,7 @@ class Training:
 
         return sentence_t
 
+    # This method tokenize the whole dataset by calling tokenize_sentence on each sentence
     def tokenize_data(self, sentences, V):
         l_data = []
         for sentence in sentences:
@@ -80,11 +90,13 @@ class Training:
 
         return torch.Tensor(l_data).long()
 
+    # Returns a minibatch
     def minibatch(self):
 
         for i in range(0, len(self.L1_data), self.batch_size):
             yield [self.L1_data[i:i + self.batch_size], self.L2_data[i:i + self.batch_size]]
 
+    # Trains the model
     def train(self):
         print("-------------Training---------------")
         print("-------------------------------------")
@@ -113,8 +125,6 @@ class Training:
 
                 # h_1 = self.approxbi.getEmbedding(L1_batch)
                 # h = h_1
-
-                # print("@",h.shape)
 
                 mu_h = self.ffnn3(h, linear_activation=True)
                 self.ffnn4.softmax = Softplus()
