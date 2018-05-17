@@ -88,6 +88,8 @@ class Training:
     def train(self):
         print("-------------Training---------------")
         print("-------------------------------------")
+
+        prev_loss = 0
         for epoch in range(self.epochs):
             print("*****************EPOCH ", epoch, "**************************")
             updates = 0
@@ -119,7 +121,7 @@ class Training:
                 sigma = self.ffnn4(h)
 
                 epsilon = multivariate_n.sample((self.batch_size,self.sentence_length,))
-                z = mu_h + epsilon * sigma
+                z = mu_h + epsilon * torch.sqrt(sigma)
 
                 cat_x = self.ffnn1(z)
                 cat_y = self.ffnn2(z)
@@ -148,24 +150,32 @@ class Training:
             print("iter %r: loss=%.4f, time=%.2fs" %
                       (epoch, training_loss / updates, time.time() - start))
 
-        torch.save(training.ffnn1, 'ffnn1.pt')
-        torch.save(training.ffnn2, 'ffnn2.pt')
-        torch.save(training.ffnn3, 'ffnn3.pt')
-        torch.save(training.ffnn4, 'ffnn4.pt')
-        torch.save(training.lstm, 'ffnn5.pt')
+            mloss = training_loss / updates
+            print("iter %r: loss=%.4f, time=%.2fs" %
+                  (epoch, mloss, time.time() - start))
+            if not prev_loss or mloss < prev_loss:
+                prev_loss = mloss
+                torch.save(training.ffnn1, 'ffnn1.pt')
+                torch.save(training.ffnn2, 'ffnn2.pt')
+                torch.save(training.ffnn3, 'ffnn3.pt')
+                torch.save(training.ffnn4, 'ffnn4.pt')
+                torch.save(training.lstm, 'lstm.pt')
 
         self.V1.save_word_indexes("L1")
         self.V2.save_word_indexes("L2")
 
 
 if __name__ == "__main__":
-    L1_data = "./data/wa/dev.en"
-    L2_data = "./data/wa/dev.fr"
+    # L1_data = "./data/wa/dev.en"
+    # L2_data = "./data/wa/dev.fr"
+
+    L1_data = "./data/wa/dev_dup.en"
+    L2_data = "./data/wa/dev_dup.fr"
 
     # L1_data = "./data/hansards/training.en"
     # L2_data = "./data/hansards/training.fr"
 
-    training = Training([L1_data, L2_data], 10, batch_size=32, dim_z=150, embedding_dim=128, hidden_dim=100, read=000)
+    training = Training([L1_data, L2_data], 2, batch_size=128, dim_z=150, embedding_dim=128, hidden_dim=100, read=000)
     training.train()
 
 

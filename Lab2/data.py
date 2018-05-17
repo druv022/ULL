@@ -62,7 +62,7 @@ class Vocabulary:
         self.i2w_f = defaultdict(lambda: len(self.i2w_f))
         PAD_f = self.w2i_f["<pad>"]
         UNK_f = self.w2i_f["<unk>"]
-        self.ignore_less = 0
+        self.ignore_less = 3
 
     def build_vocab(self, sentences):
         for sen in sentences:
@@ -324,7 +324,7 @@ if __name__ == "__main__":
         ['urge', 'environment', 'minister', 'least', 'visit',
         'site', 'talk', 'concerned', 'citizens', 'appreciate', 'firsthand', 'important']]
 
-    d = VocabularyBayesianSkipGram(sentences)
+    d = VbsGram(sentences)
     for i in d.minibatch():
         print(i)
         print()

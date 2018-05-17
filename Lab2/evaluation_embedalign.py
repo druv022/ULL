@@ -4,6 +4,7 @@ from data import TokenizedCorpus
 from torch.distributions.multivariate_normal import MultivariateNormal
 from aer import test
 import numpy as np
+import os
 
 
 def tokenize_sentence(sentence, w2i_f,sentence_length = 64):
@@ -35,41 +36,41 @@ def tokenize_data(sentences, w2i_f,sentence_length = 64):
     return torch.Tensor(l_data).long()
 
 
-def get_indexes():
+def get_indexes(model_fld):
 
-    with open("L1_w2i.json","r") as f:
+    with open((os.path.join(model_fld,"L1_w2i.json")),"r") as f:
         L1_w2i = json.load(f)
 
-    with open("L1_i2w.json","r") as f:
+    with open((os.path.join(model_fld,"L1_i2w.json")),"r") as f:
         L1_i2w = json.load(f)
 
-    with open("L1_w2i_f.json","r") as f:
+    with open((os.path.join(model_fld,"L1_w2i_f.json")),"r") as f:
         L1_w2i_f = json.load(f)
 
-    with open("L1_i2w_f.json","r") as f:
+    with open((os.path.join(model_fld,"L1_i2w_f.json")),"r") as f:
         L1_i2w_f = json.load(f)
 
-    with open("L2_w2i.json","r") as f:
+    with open((os.path.join(model_fld,"L2_w2i.json")),"r") as f:
         L2_w2i = json.load(f)
 
-    with open("L2_i2w.json","r") as f:
+    with open((os.path.join(model_fld,"L2_i2w.json")),"r") as f:
         L2_i2w = json.load(f)
 
-    with open("L2_w2i_f.json","r") as f:
+    with open((os.path.join(model_fld,"L2_w2i_f.json")),"r") as f:
         L2_w2i_f = json.load(f)
 
-    with open("L2_i2w_f.json","r") as f:
+    with open((os.path.join(model_fld,"L2_i2w_f.json")),"r") as f:
         L2_i2w_f = json.load(f)
 
     return [L1_w2i, L1_i2w, L1_w2i_f, L1_i2w_f],[L2_w2i, L2_i2w, L2_w2i_f, L2_i2w_f]
 
-def load_models():
-    ffnn1 = torch.load('ffnn1.pt')
-    ffnn2 = torch.load('ffnn2.pt')
-    ffnn3 = torch.load('ffnn3.pt')
-    ffnn4 = torch.load('ffnn4.pt')
+def load_models(model_fld):
+    ffnn1 = torch.load(os.path.join(model_fld,'ffnn1.pt'))
+    ffnn2 = torch.load(os.path.join(model_fld,'ffnn2.pt'))
+    ffnn3 = torch.load(os.path.join(model_fld,'ffnn3.pt'))
+    ffnn4 = torch.load(os.path.join(model_fld,'ffnn4.pt'))
 
-    lstm = torch.load(' ffnn5.pt')
+    lstm = torch.load(os.path.join(model_fld,'ffnn5.pt'))
 
     return [ffnn1, ffnn2, ffnn3, ffnn4, lstm]
 
@@ -79,9 +80,9 @@ def get_minibatch(data, batch_size):
     for i in range(0, len(data), batch_size):
         yield [L1_data[i:i + batch_size], L2_data[i:i + batch_size]]
 
-def evaluation(models, data_loc):
+def evaluation(models, model_fld,data_loc):
     hidden_dim = 100 # Use the same values as training
-    batch_size = 32  # Use the same values as training
+    batch_size = 128  # Use the same values as training
     sentence_length = 64 # Could use the same as training
     dim_Z = 150
 
@@ -101,7 +102,7 @@ def evaluation(models, data_loc):
     L1_sentences = l1.get_words("english")
     L2_sentences = l2.get_words("french")
 
-    V1, V2 = get_indexes()
+    V1, V2 = get_indexes(model_fld)
 
     L1_tokenized = tokenize_data(L1_sentences, V1[2])
     L2_tokenized = tokenize_data(L2_sentences, V2[2])
@@ -118,8 +119,8 @@ def evaluation(models, data_loc):
             L2_batch = L_batch[1]
 
             # This check is required because the LSTM network depends on fixed batch size
-            if L1_batch.shape[0] != batch_size:
-                continue
+            # if L1_batch.shape[0] != batch_size:
+            #     continue
 
             # Because training was done in batch, the LSTM structure/model seems to be hardcoded for batch
             h_1 = lstm(L1_batch)
@@ -135,12 +136,10 @@ def evaluation(models, data_loc):
                 cat_y = ffnn2(l1_z)
                 print(i)
                 for j, word in enumerate(l2_sentence):
-                    print("j,word",j,word)
                     if word != pad_l2:
                         x = cat_y[:,word].unsqueeze(0)
                         x = torch.mul(torch.Tensor(np.where(L1_batch[i,:] > 0, 1, 0)),x)
                         value, index = torch.max(x, 1)
-                        print("@", i, j, index)
                         aerf.write(str(1+i+batch_counter*batch_size)+" "+ str(int(index)+1) + " " + str(j+1) + " P\n")
 
         batch_counter += 1
@@ -154,8 +153,10 @@ if __name__ == '__main__':
     # L1_data = "./data/wa/dev.en"
     # L2_data = "./data/wa/dev.fr"
 
-    models = load_models()
-    evaluation(models,[L1_data, L2_data])
+    model_fld = "model"
+
+    models = load_models(model_fld)
+    evaluation(models,model_fld,[L1_data, L2_data])
 
     gold_path = "./data/wa/test.naacl"
     test_path = "AER_test.naacl"
