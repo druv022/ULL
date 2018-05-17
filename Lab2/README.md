@@ -3,7 +3,9 @@ This contains our Lab2 assignment.
 To run the training :
 
 SkipGram: python skip_gram.py
+
 Bayesian Skip Gram: python bayesian_skip.py
+
 Embed-Align: python training.py
 
 For evaluating each of the the models you need to run evalution.ipynb. Once you have this you will find .out file for running 
