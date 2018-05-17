@@ -11,6 +11,8 @@ Embed-Align: python training.py
 For evaluating each of the the models you need to run evalution.ipynb. Once you have this you will find .out file for running 
 lst_gap.py. Assuming you have a folder named data which contains all the data as mentioned in Assignment.
 
+For AER evaluation: python evaluation_embedalign.py
+
 Author:
 
   Dhruba Pujary (11576200)
