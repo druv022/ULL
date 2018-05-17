@@ -6,7 +6,7 @@ from aer import test
 import numpy as np
 import os
 
-
+# Tokenize sentence
 def tokenize_sentence(sentence, w2i_f,sentence_length = 64):
     sentence_t = []
 
@@ -26,7 +26,7 @@ def tokenize_sentence(sentence, w2i_f,sentence_length = 64):
 
     return sentence_t
 
-
+# Tokenize data
 def tokenize_data(sentences, w2i_f,sentence_length = 64):
     l_data = []
     for sentence in sentences:
@@ -36,6 +36,7 @@ def tokenize_data(sentences, w2i_f,sentence_length = 64):
     return torch.Tensor(l_data).long()
 
 
+# Read w2i files(filtered as well as unfiltered)
 def get_indexes(model_fld):
 
     with open((os.path.join(model_fld,"L1_w2i.json")),"r") as f:
@@ -46,6 +47,7 @@ def get_indexes(model_fld):
 
     with open((os.path.join(model_fld,"L1_w2i_f.json")),"r") as f:
         L1_w2i_f = json.load(f)
+        print(len(L1_w2i_f))
 
     with open((os.path.join(model_fld,"L1_i2w_f.json")),"r") as f:
         L1_i2w_f = json.load(f)
@@ -64,22 +66,26 @@ def get_indexes(model_fld):
 
     return [L1_w2i, L1_i2w, L1_w2i_f, L1_i2w_f],[L2_w2i, L2_i2w, L2_w2i_f, L2_i2w_f]
 
+
+# Load models
 def load_models(model_fld):
     ffnn1 = torch.load(os.path.join(model_fld,'ffnn1.pt'))
     ffnn2 = torch.load(os.path.join(model_fld,'ffnn2.pt'))
     ffnn3 = torch.load(os.path.join(model_fld,'ffnn3.pt'))
     ffnn4 = torch.load(os.path.join(model_fld,'ffnn4.pt'))
 
-    lstm = torch.load(os.path.join(model_fld,'ffnn5.pt'))
+    lstm = torch.load(os.path.join(model_fld,'lstm.pt'))
 
     return [ffnn1, ffnn2, ffnn3, ffnn4, lstm]
 
+# get minibatch
 def get_minibatch(data, batch_size):
     L1_data = data[0]
     L2_data = data[1]
     for i in range(0, len(data), batch_size):
         yield [L1_data[i:i + batch_size], L2_data[i:i + batch_size]]
 
+# Evaluation method for AER Evaluation
 def evaluation(models, model_fld,data_loc):
     hidden_dim = 100 # Use the same values as training
     batch_size = 128  # Use the same values as training
@@ -134,9 +140,10 @@ def evaluation(models, model_fld,data_loc):
             for i,l2_sentence in enumerate(L2_batch):
                 l1_z = z[i]
                 cat_y = ffnn2(l1_z)
-                print(i)
+                flag = False
                 for j, word in enumerate(l2_sentence):
                     if word != pad_l2:
+                        flag = True
                         x = cat_y[:,word].unsqueeze(0)
                         x = torch.mul(torch.Tensor(np.where(L1_batch[i,:] > 0, 1, 0)),x)
                         value, index = torch.max(x, 1)
@@ -153,6 +160,7 @@ if __name__ == '__main__':
     # L1_data = "./data/wa/dev.en"
     # L2_data = "./data/wa/dev.fr"
 
+    # model_fld = "model_test"
     model_fld = "model"
 
     models = load_models(model_fld)

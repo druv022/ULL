@@ -4,7 +4,7 @@ import torch.nn as nn
 
 torch.manual_seed(1)
 
-
+# Feed Forward neural network
 class FFNN(nn.Module):
 
     def __init__(self, input_size, output_size,hidden_size=250, hidden_layer = True):
@@ -35,6 +35,7 @@ class FFNN(nn.Module):
         return out
 
 
+# Bi-LSTM network
 class LSTM(nn.Module):
 
     def __init__(self,vocab_size, hidden_dim, embedding_dim, pad, batch_size=1, bidirectn_flag=True, batch_first=False):
@@ -71,7 +72,7 @@ class LSTM(nn.Module):
         return lstm_out
 
 
-
+# Evalute loss
 class ELBO:
 
     def __init__(self,m,n):
@@ -151,6 +152,7 @@ class ELBO:
         return torch.mean(kl_m)
 
 
+# This method is not tested
 class ApproxBiLSTM:
 
     def __init__(self, vocab_size, embedding_dim, pad,  batch_size=1):
