@@ -4,7 +4,7 @@ This repository contains code for the [Unsupervised Language Learning](https://u
 at the University of Amsterdam  
 
 ### Contributors
-`
+``
 * [Tarun Krishna](https://github.com/KrishnaTarun)
 * [Dhruba Pujary](https://github.com/druv022)
-`
+``
