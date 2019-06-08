@@ -11,8 +11,8 @@ at the University of Amsterdam
 
 **Problem Statement:** The goal of this practical is for you to familiarise yourselves with word representation models and different techniques for evaluating them. The word representation model that you will work with is skip-gram, trained using two kinds of context: dependency-based and word window-based. The dependency based model uses dependency annotated context to learn the word representations, as described in the paper by Omer Levy and Yoav Goldberg, [Dependency-based word embeddings, published at ACL 2014](https://aclweb.org/anthology/papers/P/P14/P14-2050/).
 
-* [Report](lab1/report-ull-lab1.pdf)
-* [Code](lab1/)
+* [Report](Lab1/report-ull-lab1.pdf)
+* [Code](Lab1/)
 
 ### Lab 2 - Learning Word Representations
 
@@ -27,8 +27,8 @@ Embed-Align introduces stochastic latent embeddings as well as a latent align-
 ment variable and learns by generating translation data. Eventually, you should
 compare the performance of these three models on the lexical substitution task.
 
-* [Report](lab2/report-ull-lab2.pdf)
-* [Code](lab2/)
+* [Report](Lab2/report-ull-lab2.pdf)
+* [Code](Lab2/)
 
 ### Lab 3 - Evaluating Sentence Representations
 
@@ -41,8 +41,8 @@ applying them on a broad and diverse set of downstream tasks called ‚Äùtransfer‚
 tasks. The reason they are called transfer tasks is that the sentence embeddings
 are not explicitly optimized on them.
 
-* [Report](lab3/report-ull-lab3.pdf)
-* [Code](lab3/)
+* [Report](Lab3/report-ull-lab3.pdf)
+* [Code](Lab3/)
 
 
 
